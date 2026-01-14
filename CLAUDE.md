@@ -39,6 +39,16 @@ Instagram employs anti-bot measures and serves dynamic HTML content, making trad
 - Pagination uses `end_cursor` for loading more posts
 - Requests require session cookies and appropriate headers
 
+## Commands
+
+```bash
+# Install dependencies
+uv sync
+
+# Run the analyzer
+uv run python instagram_analyzer.py <response.json>
+```
+
 ## Rate Limiting Considerations
 
 - Add delays between requests (1-3 seconds recommended)

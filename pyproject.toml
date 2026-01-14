@@ -1,0 +1,11 @@
+[project]
+name = "instagram-account-analyzer"
+version = "0.1.0"
+description = "Download and analyze images from public Instagram accounts"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31.0",
+    "pillow>=10.0.0",
+    "pandas>=2.0.0",
+    "matplotlib>=3.7.0",
+]
