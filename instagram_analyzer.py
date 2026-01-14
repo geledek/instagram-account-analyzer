@@ -14,11 +14,15 @@ import time
 from datetime import datetime
 from pathlib import Path
 from collections import Counter
+import glob
 
 import requests
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+import numpy as np
 
 
 class InstagramAnalyzer:
@@ -216,6 +220,185 @@ class InstagramAnalyzer:
         plt.close()
         print(f"Charts saved to {chart_file}")
 
+    def generate_poster(self, account_name="Instagram Account", profile_info=None):
+        """Generate a visual poster with key metrics and images from the account."""
+        if not self.posts_data:
+            print("No data for poster. Run analysis first.")
+            return
+
+        df = pd.DataFrame(self.posts_data)
+        df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
+
+        # Find images in download directory
+        image_files = self._find_post_images()
+
+        # Create figure with custom layout
+        fig = plt.figure(figsize=(16, 20), facecolor='#1a1a2e')
+
+        # Define grid layout
+        gs = fig.add_gridspec(5, 4, hspace=0.3, wspace=0.2,
+                              left=0.05, right=0.95, top=0.95, bottom=0.05)
+
+        # === HEADER SECTION ===
+        ax_header = fig.add_subplot(gs[0, :])
+        ax_header.set_facecolor('#1a1a2e')
+        ax_header.axis('off')
+
+        # Account name
+        ax_header.text(0.5, 0.7, f"@{account_name}", fontsize=36, fontweight='bold',
+                       color='white', ha='center', va='center',
+                       transform=ax_header.transAxes)
+        ax_header.text(0.5, 0.3, "Instagram Analytics Report", fontsize=18,
+                       color='#888888', ha='center', va='center',
+                       transform=ax_header.transAxes)
+
+        # === KEY METRICS SECTION ===
+        metrics = [
+            ("Total Posts", f"{len(df):,}", "#e94560"),
+            ("Total Likes", f"{df['likes'].sum():,}", "#0f3460"),
+            ("Avg Likes", f"{df['likes'].mean():,.0f}", "#16213e"),
+            ("Total Comments", f"{df['comments'].sum():,}", "#533483"),
+        ]
+
+        for i, (label, value, color) in enumerate(metrics):
+            ax = fig.add_subplot(gs[1, i])
+            ax.set_facecolor(color)
+            ax.axis('off')
+
+            # Add rounded rectangle effect
+            rect = mpatches.FancyBboxPatch((0.05, 0.05), 0.9, 0.9,
+                                            boxstyle="round,pad=0.02,rounding_size=0.1",
+                                            facecolor=color, edgecolor='white',
+                                            linewidth=2, transform=ax.transAxes)
+            ax.add_patch(rect)
+
+            ax.text(0.5, 0.65, value, fontsize=24, fontweight='bold',
+                    color='white', ha='center', va='center',
+                    transform=ax.transAxes)
+            ax.text(0.5, 0.3, label, fontsize=12,
+                    color='#cccccc', ha='center', va='center',
+                    transform=ax.transAxes)
+
+        # === TOP POSTS WITH IMAGES ===
+        ax_top_label = fig.add_subplot(gs[2, 0])
+        ax_top_label.set_facecolor('#1a1a2e')
+        ax_top_label.axis('off')
+        ax_top_label.text(0.0, 0.5, "TOP PERFORMING POSTS", fontsize=14,
+                          fontweight='bold', color='white',
+                          transform=ax_top_label.transAxes)
+
+        # Get top 3 posts by likes
+        top_posts = df.nlargest(3, 'likes')
+
+        for i, (_, post) in enumerate(top_posts.iterrows()):
+            if i >= 3:
+                break
+            ax = fig.add_subplot(gs[2, i + 1])
+            ax.set_facecolor('#16213e')
+
+            # Try to find and display the image
+            img_path = self._find_image_for_post(post['shortcode'], image_files)
+            if img_path:
+                try:
+                    img = Image.open(img_path)
+                    img.thumbnail((300, 300))
+                    ax.imshow(img)
+                except Exception:
+                    ax.text(0.5, 0.5, "IMG", fontsize=20, color='gray',
+                            ha='center', va='center', transform=ax.transAxes)
+            else:
+                ax.text(0.5, 0.5, "IMG", fontsize=20, color='gray',
+                        ha='center', va='center', transform=ax.transAxes)
+
+            ax.axis('off')
+            ax.set_title(f"{post['likes']:,} likes", fontsize=10, color='white', pad=5)
+
+        # === IMAGE COLLAGE ===
+        ax_collage_label = fig.add_subplot(gs[3, 0])
+        ax_collage_label.set_facecolor('#1a1a2e')
+        ax_collage_label.axis('off')
+        ax_collage_label.text(0.0, 0.5, "RECENT POSTS", fontsize=14,
+                              fontweight='bold', color='white',
+                              transform=ax_collage_label.transAxes)
+
+        # Display up to 3 recent images
+        for i, img_path in enumerate(image_files[:3]):
+            ax = fig.add_subplot(gs[3, i + 1])
+            try:
+                img = Image.open(img_path)
+                img.thumbnail((300, 300))
+                ax.imshow(img)
+            except Exception:
+                ax.set_facecolor('#16213e')
+            ax.axis('off')
+
+        # === POSTING PATTERN CHART ===
+        ax_pattern = fig.add_subplot(gs[4, :2])
+        ax_pattern.set_facecolor('#16213e')
+
+        day_order = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        df['day_short'] = df['datetime'].dt.day_name().str[:3]
+        day_counts = df['day_short'].value_counts().reindex(day_order, fill_value=0)
+
+        bars = ax_pattern.bar(day_counts.index, day_counts.values, color='#e94560', edgecolor='white')
+        ax_pattern.set_title('Posting by Day of Week', fontsize=12, color='white', pad=10)
+        ax_pattern.tick_params(colors='white', labelsize=9)
+        ax_pattern.set_facecolor('#16213e')
+        for spine in ax_pattern.spines.values():
+            spine.set_color('#333333')
+
+        # === INSIGHTS TEXT ===
+        ax_insights = fig.add_subplot(gs[4, 2:])
+        ax_insights.set_facecolor('#16213e')
+        ax_insights.axis('off')
+
+        # Calculate insights
+        most_active_day = df['datetime'].dt.day_name().value_counts().idxmax()
+        date_range = f"{df['datetime'].min().strftime('%b %Y')} - {df['datetime'].max().strftime('%b %Y')}"
+        avg_caption_len = df['caption'].str.len().mean()
+        hashtag_count = df['caption'].str.count('#').sum()
+
+        insights_text = f"""KEY INSIGHTS
+
+Most Active Day: {most_active_day}
+Date Range: {date_range}
+Avg Caption Length: {avg_caption_len:.0f} chars
+Total Hashtags Used: {hashtag_count}
+Engagement Rate: {((df['likes'].sum() + df['comments'].sum()) / len(df)):,.0f} per post"""
+
+        ax_insights.text(0.1, 0.9, insights_text, fontsize=11, color='white',
+                         transform=ax_insights.transAxes, verticalalignment='top',
+                         family='monospace', linespacing=1.8)
+
+        # Add border to insights
+        rect = mpatches.FancyBboxPatch((0.02, 0.02), 0.96, 0.96,
+                                        boxstyle="round,pad=0.02,rounding_size=0.05",
+                                        facecolor='#16213e', edgecolor='#e94560',
+                                        linewidth=2, transform=ax_insights.transAxes)
+        ax_insights.add_patch(rect)
+
+        # Save poster
+        poster_file = self.download_dir / "analytics_poster.png"
+        plt.savefig(poster_file, dpi=150, facecolor='#1a1a2e', edgecolor='none')
+        plt.close()
+        print(f"Poster saved to {poster_file}")
+        return poster_file
+
+    def _find_post_images(self):
+        """Find all downloaded post images."""
+        image_files = []
+        for ext in ['*.jpg', '*.jpeg', '*.png']:
+            image_files.extend(glob.glob(str(self.download_dir / ext)))
+        # Filter out analytics images
+        image_files = [f for f in image_files if 'analytics' not in f and 'poster' not in f]
+        return sorted(image_files, key=os.path.getmtime, reverse=True)
+
+    def _find_image_for_post(self, shortcode, image_files):
+        """Find the image file for a specific post shortcode."""
+        for img_path in image_files:
+            if shortcode in img_path:
+                return img_path
+        return None
 
     def load_from_metadata(self, metadata_file):
         """Load posts data from existing metadata.json (e.g., from instaloader)."""
@@ -233,6 +416,8 @@ def main():
     parser.add_argument("--from-metadata", "-m", help="Load from metadata.json (from instaloader)")
     parser.add_argument("--analyze-only", "-a", action="store_true", help="Only run analysis (skip download)")
     parser.add_argument("--output", "-o", default="downloads", help="Output directory")
+    parser.add_argument("--account", "-n", default="Instagram Account", help="Account name for poster")
+    parser.add_argument("--poster", "-p", action="store_true", help="Generate visual poster")
 
     args = parser.parse_args()
 
@@ -242,17 +427,22 @@ def main():
         # Load from existing metadata (e.g., from instaloader)
         analyzer.load_from_metadata(args.from_metadata)
         analyzer.analyze()
+        if args.poster:
+            analyzer.generate_poster(account_name=args.account)
     elif args.json_file:
         # Extract from API response JSON
         analyzer.extract_from_response(args.json_file)
         if not args.analyze_only:
             analyzer.download_images()
         analyzer.analyze()
+        if args.poster:
+            analyzer.generate_poster(account_name=args.account)
     else:
         parser.print_help()
         print("\nExamples:")
         print("  uv run python instagram_analyzer.py response.json")
         print("  uv run python instagram_analyzer.py --from-metadata downloads/metadata.json")
+        print("  uv run python instagram_analyzer.py -m downloads/metadata.json --poster --account thedankoe")
 
 
 if __name__ == "__main__":
