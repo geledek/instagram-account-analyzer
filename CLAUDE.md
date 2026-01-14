@@ -59,6 +59,9 @@ uv run python instagram_analyzer.py --from-metadata downloads/metadata.json
 # Generate visual poster with metrics and images
 uv run python instagram_analyzer.py -m downloads/metadata.json --poster --account thedankoe
 
+# Generate premium poster (improved design)
+uv run python poster_designer.py -m downloads/metadata.json --account thedankoe
+
 # Login to Instagram (saves session for future use - avoids rate limits)
 uv run instaloader --login YOUR_USERNAME
 ```
