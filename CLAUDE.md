@@ -4,40 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Objective
 
-Analyze a public Instagram account (https://www.instagram.com/thedankoe/) by downloading all images with metadata and generating insights.
+Analyze public Instagram accounts by downloading images with metadata and generating visual analytics reports.
 
-## Technical Context
+## Architecture
 
-Instagram employs anti-bot measures and serves dynamic HTML content, making traditional scraping difficult. This project uses browser developer tools to intercept API calls, extract data, and perform analytics.
-
-## Approach
-
-1. **API Interception**: Use browser Network tab to capture Instagram's internal GraphQL API requests when scrolling through the profile
-2. **URL Extraction**: Parse API responses to compile image URLs and metadata (timestamps, captions, engagement data)
-3. **Automated Download**: Download all images with their associated metadata to a local directory
-4. **Analyze**: Generate insights and reports from the collected data
-
-## Expected Outcome
-
-- All photos downloaded with metadata (timestamps, captions, likes/comments if available)
-- Analytics report with insights
-
-## Analytics Insights
-
-- **Posting Patterns**: Days/times of posts, posting frequency trends over time
-- **Engagement Metrics**: Likes, comments per post (if accessible from API)
-- **Content Analysis**: Image types, dimensions, color schemes
-- **Caption Analysis**: Word frequency, hashtag usage, caption length trends
-- **Growth Trends**: How engagement changes over time
-- **Visual Themes**: Dominant colors, branding consistency
-
-## Key Technical Details
-
-- Instagram's GraphQL endpoint: `https://www.instagram.com/graphql/query/`
-- Image URLs are in the `display_url` field within edge nodes
-- Metadata includes `taken_at_timestamp`, `edge_media_to_caption`, `edge_liked_by`, `edge_media_to_comment`
-- Pagination uses `end_cursor` for loading more posts
-- Requests require session cookies and appropriate headers
+```
+├── download_profile.py     # Downloads posts using instaloader
+├── instagram_analyzer.py   # Analyzes data and generates basic poster
+├── poster_designer.py      # Generates premium visual poster
+└── output/                 # Timestamped output folders
+    └── YYYY-MM-DD_username/
+        ├── metadata.json
+        ├── analytics_report.json
+        ├── analytics_poster.png
+        ├── analytics_poster_v2.png
+        └── *.jpg
+```
 
 ## Commands
 
@@ -45,29 +27,29 @@ Instagram employs anti-bot measures and serves dynamic HTML content, making trad
 # Install dependencies
 uv sync
 
-# Option 1: Download using instaloader (recommended)
-uv run python download_profile.py thedankoe              # Download all posts
-uv run python download_profile.py thedankoe --max 50    # Limit to 50 posts
-uv run python download_profile.py thedankoe --login YOUR_USERNAME  # With login
+# Download posts (auto-creates output/YYYY-MM-DD_username/)
+uv run python download_profile.py USERNAME --max 50
 
-# Option 2: Manual API capture (browser dev tools)
-uv run python instagram_analyzer.py response.json
+# Run analysis and generate poster
+uv run python instagram_analyzer.py -m output/YYYY-MM-DD_username/metadata.json --poster --account USERNAME
 
-# Run analysis on downloaded data
-uv run python instagram_analyzer.py --from-metadata downloads/metadata.json
+# Generate premium poster
+uv run python poster_designer.py -m output/YYYY-MM-DD_username/metadata.json --account USERNAME
 
-# Generate visual poster with metrics and images
-uv run python instagram_analyzer.py -m downloads/metadata.json --poster --account thedankoe
-
-# Generate premium poster (improved design)
-uv run python poster_designer.py -m downloads/metadata.json --account thedankoe
-
-# Login to Instagram (saves session for future use - avoids rate limits)
+# Login to avoid rate limits (recommended)
 uv run instaloader --login YOUR_USERNAME
+uv run python download_profile.py USERNAME --login YOUR_USERNAME --max 50
 ```
 
-## Rate Limiting Considerations
+## Key Technical Details
 
-- Add delays between requests (1-3 seconds recommended)
-- Respect Instagram's robots.txt and terms of service
-- This is for educational purposes on a public account only
+- Uses `instaloader` library for Instagram API access
+- Outputs organized in timestamped folders: `output/YYYY-MM-DD_username/`
+- Poster designer uses matplotlib with custom dark theme
+- Account content analysis detects themes from captions
+
+## Rate Limiting
+
+- Instagram rate-limits unauthenticated requests
+- Login with `--login` flag to avoid 403 errors
+- Add delays between large downloads

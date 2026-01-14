@@ -131,15 +131,22 @@ def main():
 
     parser = argparse.ArgumentParser(description="Download Instagram profile images")
     parser.add_argument("username", help="Instagram username (without @)")
-    parser.add_argument("--output", "-o", default="downloads", help="Output directory")
+    parser.add_argument("--output", "-o", help="Output directory (default: output/YYYY-MM-DD_username)")
     parser.add_argument("--login", "-l", help="Your Instagram username (for login)")
     parser.add_argument("--max", "-m", type=int, help="Maximum posts to download")
 
     args = parser.parse_args()
 
+    # Generate timestamped output directory if not specified
+    if args.output:
+        output_dir = args.output
+    else:
+        timestamp = datetime.now().strftime("%Y-%m-%d")
+        output_dir = f"output/{timestamp}_{args.username}"
+
     download_profile(
         username=args.username,
-        output_dir=args.output,
+        output_dir=output_dir,
         login_user=args.login,
         max_posts=args.max,
     )

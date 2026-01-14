@@ -10,6 +10,7 @@ env/
 
 # Project specific
 downloads/
+output/
 *.json
 !sample_response.json
 
