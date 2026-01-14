@@ -232,12 +232,16 @@ class InstagramAnalyzer:
         # Find images in download directory
         image_files = self._find_post_images()
 
-        # Create figure with custom layout
-        fig = plt.figure(figsize=(16, 20), facecolor='#1a1a2e')
+        # Generate account insights from content analysis
+        account_insights = self._analyze_account_content(df)
 
-        # Define grid layout
-        gs = fig.add_gridspec(5, 4, hspace=0.3, wspace=0.2,
-                              left=0.05, right=0.95, top=0.95, bottom=0.05)
+        # Create figure with custom layout (increased height for new section)
+        fig = plt.figure(figsize=(16, 24), facecolor='#1a1a2e')
+
+        # Define grid layout (6 rows now)
+        gs = fig.add_gridspec(6, 4, hspace=0.25, wspace=0.2,
+                              left=0.05, right=0.95, top=0.96, bottom=0.04,
+                              height_ratios=[0.8, 1.2, 1.2, 1.5, 1.5, 1.2])
 
         # === HEADER SECTION ===
         ax_header = fig.add_subplot(gs[0, :])
@@ -245,12 +249,31 @@ class InstagramAnalyzer:
         ax_header.axis('off')
 
         # Account name
-        ax_header.text(0.5, 0.7, f"@{account_name}", fontsize=36, fontweight='bold',
+        ax_header.text(0.5, 0.75, f"@{account_name}", fontsize=42, fontweight='bold',
                        color='white', ha='center', va='center',
                        transform=ax_header.transAxes)
-        ax_header.text(0.5, 0.3, "Instagram Analytics Report", fontsize=18,
+        ax_header.text(0.5, 0.25, "Instagram Analytics Report", fontsize=16,
                        color='#888888', ha='center', va='center',
                        transform=ax_header.transAxes)
+
+        # === ACCOUNT INSIGHTS DESCRIPTION ===
+        ax_desc = fig.add_subplot(gs[1, :])
+        ax_desc.set_facecolor('#1a1a2e')
+        ax_desc.axis('off')
+
+        # Add insight box
+        rect = mpatches.FancyBboxPatch((0.02, 0.1), 0.96, 0.8,
+                                        boxstyle="round,pad=0.02,rounding_size=0.02",
+                                        facecolor='#16213e', edgecolor='#e94560',
+                                        linewidth=2, transform=ax_desc.transAxes)
+        ax_desc.add_patch(rect)
+
+        ax_desc.text(0.5, 0.85, "ACCOUNT PROFILE", fontsize=14, fontweight='bold',
+                     color='#e94560', ha='center', va='center',
+                     transform=ax_desc.transAxes)
+        ax_desc.text(0.5, 0.45, account_insights, fontsize=12, color='white',
+                     ha='center', va='center', transform=ax_desc.transAxes,
+                     wrap=True, linespacing=1.5)
 
         # === KEY METRICS SECTION ===
         metrics = [
@@ -261,7 +284,7 @@ class InstagramAnalyzer:
         ]
 
         for i, (label, value, color) in enumerate(metrics):
-            ax = fig.add_subplot(gs[1, i])
+            ax = fig.add_subplot(gs[2, i])
             ax.set_facecolor(color)
             ax.axis('off')
 
@@ -272,20 +295,20 @@ class InstagramAnalyzer:
                                             linewidth=2, transform=ax.transAxes)
             ax.add_patch(rect)
 
-            ax.text(0.5, 0.65, value, fontsize=24, fontweight='bold',
+            ax.text(0.5, 0.6, value, fontsize=36, fontweight='bold',
                     color='white', ha='center', va='center',
                     transform=ax.transAxes)
-            ax.text(0.5, 0.3, label, fontsize=12,
+            ax.text(0.5, 0.25, label, fontsize=13,
                     color='#cccccc', ha='center', va='center',
                     transform=ax.transAxes)
 
         # === TOP POSTS WITH IMAGES ===
-        ax_top_label = fig.add_subplot(gs[2, 0])
+        ax_top_label = fig.add_subplot(gs[3, 0])
         ax_top_label.set_facecolor('#1a1a2e')
         ax_top_label.axis('off')
-        ax_top_label.text(0.0, 0.5, "TOP PERFORMING POSTS", fontsize=14,
+        ax_top_label.text(0.0, 0.5, "TOP\nPERFORMING\nPOSTS", fontsize=13,
                           fontweight='bold', color='white',
-                          transform=ax_top_label.transAxes)
+                          transform=ax_top_label.transAxes, linespacing=1.5)
 
         # Get top 3 posts by likes
         top_posts = df.nlargest(3, 'likes')
@@ -293,7 +316,7 @@ class InstagramAnalyzer:
         for i, (_, post) in enumerate(top_posts.iterrows()):
             if i >= 3:
                 break
-            ax = fig.add_subplot(gs[2, i + 1])
+            ax = fig.add_subplot(gs[3, i + 1])
             ax.set_facecolor('#16213e')
 
             # Try to find and display the image
@@ -301,7 +324,7 @@ class InstagramAnalyzer:
             if img_path:
                 try:
                     img = Image.open(img_path)
-                    img.thumbnail((300, 300))
+                    img.thumbnail((400, 400))
                     ax.imshow(img)
                 except Exception:
                     ax.text(0.5, 0.5, "IMG", fontsize=20, color='gray',
@@ -311,29 +334,43 @@ class InstagramAnalyzer:
                         ha='center', va='center', transform=ax.transAxes)
 
             ax.axis('off')
-            ax.set_title(f"{post['likes']:,} likes", fontsize=10, color='white', pad=5)
+            # Format date
+            post_date = pd.to_datetime(post['timestamp'], unit='s').strftime('%b %d, %Y')
+            ax.set_title(f"{post['likes']:,} likes  |  {post_date}", fontsize=10, color='white', pad=8)
 
-        # === IMAGE COLLAGE ===
-        ax_collage_label = fig.add_subplot(gs[3, 0])
+        # === RECENT POSTS ===
+        ax_collage_label = fig.add_subplot(gs[4, 0])
         ax_collage_label.set_facecolor('#1a1a2e')
         ax_collage_label.axis('off')
-        ax_collage_label.text(0.0, 0.5, "RECENT POSTS", fontsize=14,
+        ax_collage_label.text(0.0, 0.5, "RECENT\nPOSTS", fontsize=13,
                               fontweight='bold', color='white',
-                              transform=ax_collage_label.transAxes)
+                              transform=ax_collage_label.transAxes, linespacing=1.5)
 
-        # Display up to 3 recent images
-        for i, img_path in enumerate(image_files[:3]):
-            ax = fig.add_subplot(gs[3, i + 1])
-            try:
-                img = Image.open(img_path)
-                img.thumbnail((300, 300))
-                ax.imshow(img)
-            except Exception:
+        # Get recent posts sorted by date
+        recent_posts = df.nlargest(3, 'timestamp')
+
+        for i, (_, post) in enumerate(recent_posts.iterrows()):
+            if i >= 3:
+                break
+            ax = fig.add_subplot(gs[4, i + 1])
+
+            img_path = self._find_image_for_post(post['shortcode'], image_files)
+            if img_path:
+                try:
+                    img = Image.open(img_path)
+                    img.thumbnail((400, 400))
+                    ax.imshow(img)
+                except Exception:
+                    ax.set_facecolor('#16213e')
+            else:
                 ax.set_facecolor('#16213e')
             ax.axis('off')
+            # Format date
+            post_date = pd.to_datetime(post['timestamp'], unit='s').strftime('%b %d, %Y')
+            ax.set_title(post_date, fontsize=10, color='#888888', pad=8)
 
         # === POSTING PATTERN CHART ===
-        ax_pattern = fig.add_subplot(gs[4, :2])
+        ax_pattern = fig.add_subplot(gs[5, :2])
         ax_pattern.set_facecolor('#16213e')
 
         day_order = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -348,7 +385,7 @@ class InstagramAnalyzer:
             spine.set_color('#333333')
 
         # === INSIGHTS TEXT ===
-        ax_insights = fig.add_subplot(gs[4, 2:])
+        ax_insights = fig.add_subplot(gs[5, 2:])
         ax_insights.set_facecolor('#16213e')
         ax_insights.axis('off')
 
@@ -383,6 +420,64 @@ Engagement Rate: {((df['likes'].sum() + df['comments'].sum()) / len(df)):,.0f} p
         plt.close()
         print(f"Poster saved to {poster_file}")
         return poster_file
+
+    def _analyze_account_content(self, df):
+        """Analyze captions and content to generate account insights."""
+        all_captions = ' '.join(df['caption'].fillna('').tolist()).lower()
+
+        # Common theme keywords to detect
+        themes = {
+            'entrepreneurship': ['entrepreneur', 'business', 'startup', 'hustle', 'wealth', 'money', 'income', 'profit'],
+            'personal development': ['mindset', 'growth', 'self', 'improve', 'discipline', 'habits', 'success', 'goals'],
+            'productivity': ['productivity', 'focus', 'time', 'efficient', 'routine', 'morning', 'schedule'],
+            'motivation': ['motivation', 'inspire', 'believe', 'dream', 'achieve', 'passion', 'purpose'],
+            'education': ['learn', 'knowledge', 'skill', 'read', 'book', 'study', 'course'],
+            'lifestyle': ['life', 'lifestyle', 'travel', 'freedom', 'experience', 'adventure'],
+            'health & fitness': ['health', 'fitness', 'workout', 'gym', 'diet', 'exercise', 'body'],
+            'creativity': ['create', 'creative', 'art', 'design', 'content', 'write', 'build'],
+        }
+
+        detected_themes = []
+        for theme, keywords in themes.items():
+            if any(kw in all_captions for kw in keywords):
+                detected_themes.append(theme)
+
+        # Determine account type
+        avg_likes = df['likes'].mean()
+        total_posts = len(df)
+
+        if avg_likes > 10000:
+            influence_level = "High-influence creator"
+        elif avg_likes > 1000:
+            influence_level = "Growing creator"
+        else:
+            influence_level = "Emerging creator"
+
+        # Build insight text
+        if detected_themes:
+            themes_str = ', '.join(detected_themes[:3])
+            insight = f"{influence_level} focused on {themes_str}. "
+        else:
+            insight = f"{influence_level} sharing visual content. "
+
+        # Add engagement observation
+        engagement_rate = (df['likes'].sum() + df['comments'].sum()) / len(df)
+        if engagement_rate > 5000:
+            insight += "Strong audience engagement with high interaction rates. "
+        elif engagement_rate > 1000:
+            insight += "Consistent engagement from an active community. "
+
+        # Add posting pattern observation
+        if total_posts >= 3:
+            posting_freq = (df['datetime'].max() - df['datetime'].min()).days / total_posts
+            if posting_freq < 2:
+                insight += "Frequent posting schedule maintains audience connection."
+            elif posting_freq < 7:
+                insight += "Regular posting cadence keeps content fresh."
+            else:
+                insight += "Measured posting approach focuses on quality over quantity."
+
+        return insight
 
     def _find_post_images(self):
         """Find all downloaded post images."""
