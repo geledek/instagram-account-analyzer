@@ -45,8 +45,19 @@ Instagram employs anti-bot measures and serves dynamic HTML content, making trad
 # Install dependencies
 uv sync
 
-# Run the analyzer
-uv run python instagram_analyzer.py <response.json>
+# Option 1: Download using instaloader (recommended)
+uv run python download_profile.py thedankoe              # Download all posts
+uv run python download_profile.py thedankoe --max 50    # Limit to 50 posts
+uv run python download_profile.py thedankoe --login YOUR_USERNAME  # With login
+
+# Option 2: Manual API capture (browser dev tools)
+uv run python instagram_analyzer.py response.json
+
+# Run analysis on downloaded data
+uv run python instagram_analyzer.py --from-metadata downloads/metadata.json
+
+# Login to Instagram (saves session for future use - avoids rate limits)
+uv run instaloader --login YOUR_USERNAME
 ```
 
 ## Rate Limiting Considerations

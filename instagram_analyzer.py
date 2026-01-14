@@ -217,28 +217,42 @@ class InstagramAnalyzer:
         print(f"Charts saved to {chart_file}")
 
 
+    def load_from_metadata(self, metadata_file):
+        """Load posts data from existing metadata.json (e.g., from instaloader)."""
+        with open(metadata_file, 'r') as f:
+            self.posts_data = json.load(f)
+        print(f"Loaded {len(self.posts_data)} posts from metadata")
+        return self.posts_data
+
+
 def main():
-    """
-    Usage:
-    1. Open Instagram profile in browser
-    2. Open Developer Tools (F12) > Network tab
-    3. Scroll through the profile to trigger API calls
-    4. Find requests to graphql/query and save response as JSON
-    5. Run this script with the JSON file path
-    """
-    import sys
+    import argparse
 
-    if len(sys.argv) < 2:
-        print("Usage: python instagram_analyzer.py <response.json>")
-        print("\nSee CLAUDE.md for instructions on capturing API responses.")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Instagram Account Analyzer")
+    parser.add_argument("json_file", nargs="?", help="API response JSON file")
+    parser.add_argument("--from-metadata", "-m", help="Load from metadata.json (from instaloader)")
+    parser.add_argument("--analyze-only", "-a", action="store_true", help="Only run analysis (skip download)")
+    parser.add_argument("--output", "-o", default="downloads", help="Output directory")
 
-    json_file = sys.argv[1]
+    args = parser.parse_args()
 
-    analyzer = InstagramAnalyzer()
-    analyzer.extract_from_response(json_file)
-    analyzer.download_images()
-    analyzer.analyze()
+    analyzer = InstagramAnalyzer(download_dir=args.output)
+
+    if args.from_metadata:
+        # Load from existing metadata (e.g., from instaloader)
+        analyzer.load_from_metadata(args.from_metadata)
+        analyzer.analyze()
+    elif args.json_file:
+        # Extract from API response JSON
+        analyzer.extract_from_response(args.json_file)
+        if not args.analyze_only:
+            analyzer.download_images()
+        analyzer.analyze()
+    else:
+        parser.print_help()
+        print("\nExamples:")
+        print("  uv run python instagram_analyzer.py response.json")
+        print("  uv run python instagram_analyzer.py --from-metadata downloads/metadata.json")
 
 
 if __name__ == "__main__":

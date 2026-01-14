@@ -8,4 +8,5 @@ dependencies = [
     "pillow>=10.0.0",
     "pandas>=2.0.0",
     "matplotlib>=3.7.0",
+    "instaloader>=4.15",
 ]
